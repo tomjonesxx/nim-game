@@ -585,6 +585,163 @@ body {
 }
 .setup-btn.primary { background: var(--green); border-color: #2a9648; color: #fff; }
 .setup-btn:hover { opacity: 0.85; }
+
+/* ── MOBILE ──────────────────────────────────────────── */
+@media (max-width: 600px) {
+
+  html, body { height: auto; overflow: auto; }
+
+  body {
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  #header {
+    height: auto;
+    min-height: auto;
+    padding: 12px 16px;
+  }
+  #header h1 {
+    font-size: 1rem;
+    text-align: center;
+  }
+
+  #main {
+    flex-direction: column;
+    overflow: visible;
+    min-height: 0;
+  }
+
+  /* Board fills width, fixed height for the tower area */
+  #board {
+    padding: 10px 10px 6px;
+    gap: 6px;
+    height: auto;
+    flex: none;
+  }
+
+  #towers-area {
+    height: 38vh;
+    min-height: 200px;
+    flex: none;
+    gap: 4px;
+    padding-bottom: 6px;
+  }
+
+  .tower-label {
+    font-size: 0.75rem;
+    margin-bottom: 4px;
+    letter-spacing: 0.1em;
+  }
+
+  .tower-peg {
+    width: 10px;
+  }
+
+  .disk {
+    height: clamp(14px, 4.5vw, 26px);
+    font-size: 0.6rem;
+    margin-bottom: 1px;
+    border-radius: 4px;
+  }
+
+  #formula-bar {
+    flex-wrap: wrap;
+    min-height: auto;
+    padding: 6px 0 0;
+    gap: 6px;
+  }
+  .formula-label { font-size: 0.7rem; }
+  .formula-val   { font-size: 0.85rem; }
+  .formula-explain { font-size: 0.7rem; }
+
+  /* Right panel becomes a bottom strip */
+  #right-panel {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    border-left: none;
+    border-top: 2px solid var(--border);
+    flex: none;
+    overflow: visible;
+  }
+
+  #info-box {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    gap: 10px;
+    flex: none;
+    min-height: 0;
+    border-bottom: 2px solid var(--border);
+  }
+
+  /* Stats shrink into a compact row */
+  #stats-block {
+    flex: 1;
+    gap: 0;
+  }
+  .move-stat-label {
+    font-size: 0.5rem;
+    letter-spacing: 0.1em;
+    margin-bottom: 2px;
+  }
+  .move-stat-val {
+    font-size: 1.4rem;
+  }
+
+  /* Held display sits to the right of stats */
+  #held-display {
+    min-height: 0;
+    width: auto;
+    flex-shrink: 0;
+    align-items: flex-end;
+    gap: 2px;
+  }
+  .held-label { font-size: 0.48rem; letter-spacing: 0.1em; }
+  #held-disk-preview {
+    height: 22px;
+    font-size: 0.62rem;
+    width: 90px !important;
+  }
+
+  /* Suggest box */
+  #suggest-box { padding: 8px 14px; }
+  .suggest-box-title { font-size: 0.55rem; margin-bottom: 4px; }
+  .suggest-box-body  { font-size: 0.78rem; }
+
+  /* Button grid — larger tap targets */
+  #btn-grid {
+    gap: 8px;
+    padding: 10px;
+  }
+  .ctrl-btn {
+    font-size: 0.82rem;
+    padding: 13px 8px;
+  }
+  .autoplay-label { font-size: 0.82rem; }
+  .autoplay-thinking { font-size: 0.7rem; }
+
+  /* Overlays — full width cards on mobile */
+  .winner-card {
+    padding: 32px 24px;
+    width: 92vw;
+    max-width: 92vw;
+  }
+  .winner-title { font-size: 2.2rem; }
+  .winner-stats { font-size: 0.72rem; margin-bottom: 24px; }
+
+  .setup-card {
+    min-width: 0;
+    width: 94vw;
+    padding: 28px 20px;
+    max-height: 90dvh;
+    overflow-y: auto;
+  }
+  .setup-title { font-size: 1.3rem; margin-bottom: 18px; }
+}
 </style>
 </head>
 <body>
