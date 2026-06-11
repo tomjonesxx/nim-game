@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Computational Thinking — Mastermind</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:          #f7f7f3;
+  --white:       #ffffff;
+  --border:      #d8d8d0;
+  --border-dark: #b0b0a8;
+  --text:        #2a2a2a;
+  --muted:       #888880;
+  --faint:       #c0c0b8;
+
+  --green:       #3bba5a;
+  --green-light: #d4f5dc;
+  --green-glow:  rgba(59,186,90,0.35);
+
+  --blue:        #3a8fd4;
+  --orange:      #e07a30;
+  --red:         #d94040;
+
+  --yellow-hdr:  #fdf8dc;
+  --yellow-bdr:  #e8d87a;
+
+  --panel-w: 300px;
+  --header-h: 66px;
+  --font: Arial, Helvetica, sans-serif;
+  --mono: 'Courier New', Courier, monospace;
+
+  /* Mastermind peg colours */
+  --c1: #e03c3c;
+  --c2: #3a8fd4;
+  --c3: #3bba5a;
+  --c4: #e8b830;
+  --c5: #9b59b6;
+  --c6: #e07a30;
+}
+
+html, body { width:100%; height:100%; overflow:hidden; }
+
+body {
+  background: var(--bg);
+  font-family: var(--font);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ── HEADER ─────────────────────────────────────────── */
+#header {
+  background: var(--yellow-hdr);
+  border-bottom: 2.5px solid var(--yellow-bdr);
+  height: var(--header-h);
+  min-height: var(--header-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+#header h1 {
+  font-size: clamp(1.3rem, 3vw, 2.1rem);
+  font-weight: 900;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+/* ── MAIN LAYOUT ─────────────────────────────────────── */
+#main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+  justify-content: center;
+}
+
+#centre {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+  max-width: 900px;
+  width: 100%;
+}
+
+/* ── LEFT: game board ────────────────────────────────── */
+#board {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px 12px 28px;
+  overflow: hidden;
+  gap: 0;
+}
+
+/* ── SECRET CODE SHIELD ──────────────────────────────── */
+#shield {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px 14px 8px;
+  border-bottom: 2.5px solid var(--border-dark);
+  margin-bottom: 8px;
+}
+#shield-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--muted);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  min-width: 18px;
+  text-align: right;
+}
+.shield-pegs {
+  display: flex;
+  gap: 7px;
+  flex: 1;
+}
+.shield-peg {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2.5px solid var(--border-dark);
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 1rem;
+  color: var(--faint);
+  transition: all 0.2s;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.08);
+  flex-shrink: 0;
+}
+.shield-peg.revealed {
+  border-color: transparent;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.22), inset 0 1px 3px rgba(255,255,255,0.3);
+}
+/* spacer to match feedback-cluster width */
+.shield-spacer {
+  width: 38px;
+  flex-shrink: 0;
+}
+
+/* ── GUESS ROWS AREA ──────────────────────────────────── */
+#rows-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 5px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  min-height: 0;
+}
+
+/* Single guess row */
+.guess-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  border: 1.5px solid transparent;
+  transition: border-color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.guess-row.active {
+  border-color: var(--border-dark);
+  background: var(--white);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.guess-row.past {
+  border-color: var(--border);
+}
+
+.row-num {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--faint);
+  min-width: 18px;
+  text-align: right;
+  letter-spacing: 0.05em;
+}
+
+/* The 4 guess pegs */
+.guess-pegs {
+  display: flex;
+  gap: 7px;
+  flex: 1;
+}
+.guess-peg {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--border-dark);
+  background: var(--bg);
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.12s, border-color 0.1s;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.08);
+  flex-shrink: 0;
+}
+.guess-peg.filled {
+  border-color: transparent;
+  box-shadow: 0 3px 9px rgba(0,0,0,0.2), inset 0 1px 3px rgba(255,255,255,0.25);
+}
+.guess-peg.active-slot {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(58,143,212,0.22), inset 0 2px 4px rgba(0,0,0,0.08);
+}
+.guess-peg:hover:not(.filled):not([data-active="false"]) {
+  border-color: var(--text);
+}
+
+/* Feedback peg cluster — 2×2 grid */
+.feedback-cluster {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 5px;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+}
+.fb-peg {
+  border-radius: 50%;
+  background: var(--border);
+}
+.fb-peg.exact  { background: var(--green); }
+.fb-peg.colour { background: var(--orange); }
+
+/* ── COLOUR PALETTE ──────────────────────────────────── */
+#palette-bar {
+  flex-shrink: 0;
+  border-top: 1.5px solid var(--border);
+  padding: 10px 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+#palette-label {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--muted);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  min-width: 54px;
+}
+#palette-swatches {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+.swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+  box-shadow: 0 2px 7px rgba(0,0,0,0.18), inset 0 1px 3px rgba(255,255,255,0.25);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.92);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.35);
+}
+.swatch:hover { transform: scale(1.12); box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
+.swatch.selected {
+  border-color: var(--text);
+  transform: scale(1.15);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.28);
+}
+
+/* ── RIGHT PANEL ─────────────────────────────────────── */
+#right-panel {
+  width: var(--panel-w);
+  min-width: var(--panel-w);
+  max-width: var(--panel-w);
+  flex-shrink: 0;
+  border-left: 2px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  background: var(--white);
+  overflow: hidden;
+}
+
+#info-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 22px 20px;
+  border-bottom: 2px solid var(--border);
+  min-height: 0;
+}
+
+#stats-block {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-around;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+.stat-label {
+  font-family: var(--mono);
+  font-size: 0.54rem;
+  color: var(--faint);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+  text-align: center;
+}
+.stat-val {
+  font-family: var(--mono);
+  font-size: clamp(1.6rem, 2.8vw, 2.4rem);
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+.stat-val.good { color: var(--green); }
+.stat-val.bad  { color: var(--red); }
+
+/* Status / hint display */
+#status-display {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-height: 52px;
+  justify-content: center;
+}
+.status-label {
+  font-family: var(--mono);
+  font-size: 0.56rem;
+  color: var(--faint);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+#status-msg {
+  font-size: clamp(0.7rem, 1.2vw, 0.82rem);
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.5;
+  max-width: 220px;
+}
+#status-msg strong { color: var(--green); }
+#status-msg .bad   { color: var(--red); }
+
+/* ── KEY / LEGEND ─────────────────────────────────────── */
+#key-box {
+  border-top: 2px solid var(--border);
+  padding: 14px 16px;
+  flex-shrink: 0;
+}
+.key-title {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--muted);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.key-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 7px;
+}
+.key-peg {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.key-peg.exact  { background: var(--green); }
+.key-peg.colour { background: var(--orange); }
+.key-peg.empty  { background: var(--border); }
+.key-text {
+  font-size: clamp(0.6rem, 1vw, 0.72rem);
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* ── BUTTONS ─────────────────────────────────────────── */
+#btn-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 14px;
+  border-top: 2px solid var(--border);
+  flex-shrink: 0;
+}
+.ctrl-btn {
+  font-family: var(--font);
+  font-size: clamp(0.72rem, 1.3vw, 0.88rem);
+  font-weight: 700;
+  padding: 11px 8px;
+  border: 2px solid var(--border-dark);
+  background: var(--white);
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.16s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+  text-align: center;
+  white-space: nowrap;
+}
+.ctrl-btn:hover  { background: var(--bg); border-color: var(--text); }
+.ctrl-btn:active { transform: scale(0.97); }
+.ctrl-btn.danger { color: var(--red); border-color: rgba(217,64,64,0.4); }
+.ctrl-btn.danger:hover { background: rgba(217,64,64,0.07); border-color: var(--red); }
+.ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.ctrl-btn.primary { background: var(--green); border-color: #2a9648; color: #fff; box-shadow: 0 3px 10px var(--green-glow); }
+
+/* Duplicates toggle row */
+.dup-row {
+  grid-column: span 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+}
+.dup-label {
+  font-family: var(--font);
+  font-size: clamp(0.72rem, 1.3vw, 0.88rem);
+  font-weight: 700;
+  color: var(--text);
+}
+.toggle-switch {
+  position: relative;
+  width: 46px;
+  height: 26px;
+  flex-shrink: 0;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0; height: 0;
+  position: absolute;
+}
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 13px;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+.toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--white);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  transition: transform 0.2s;
+}
+.toggle-switch input:checked + .toggle-track { background: var(--green); }
+.toggle-switch input:checked + .toggle-track::after { transform: translateX(20px); }
+
+/* ── RESULT BANNER ─────────────────────────────────────── */
+#result-overlay {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 500;
+  justify-content: center;
+  padding: 0 16px 16px;
+  pointer-events: none;
+}
+#result-overlay.show { display: flex; }
+
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.result-card {
+  background: var(--white);
+  border: 2px solid var(--border-dark);
+  border-radius: 10px;
+  padding: 16px 28px;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.14), 0 8px 32px rgba(0,0,0,0.12);
+  animation: slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  pointer-events: all;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  max-width: 860px;
+  width: 100%;
+}
+.result-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.result-eyebrow {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--muted);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+}
+.result-title {
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-weight: 900;
+  line-height: 1;
+}
+.result-title.win  { color: var(--green); }
+.result-title.lose { color: var(--red); }
+.result-stats {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.result-stats .good { color: var(--green); font-weight: 700; }
+.result-code {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.result-code-label {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--faint);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-right: 2px;
+}
+.result-code-peg {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.result-btns {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.result-btn {
+  font-family: var(--font);
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 10px 22px;
+  border: 2px solid var(--border-dark);
+  background: var(--white);
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.result-btn.primary { background: var(--green); border-color: #2a9648; color: #fff; }
+.result-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+
+/* ── MOBILE ──────────────────────────────────────────── */
+@media (max-width: 640px) {
+  html, body { height: auto; overflow: auto; }
+  body { height: auto; min-height: 100dvh; }
+
+  #header { height: auto; min-height: auto; padding: 12px 16px; }
+  #header h1 { font-size: 1rem; text-align: center; }
+
+  #main { flex-direction: column; overflow: visible; min-height: 0; }
+
+  #board { padding: 10px 10px 6px; gap: 0; height: auto; flex: none; }
+
+  #rows-area { height: 55vh; min-height: 260px; flex: none; }
+
+  .guess-peg { width: 26px; height: 26px; }
+  .swatch { width: 30px; height: 30px; }
+  .shield-peg { width: 28px; height: 28px; font-size: 0.9rem; }
+
+  #right-panel {
+    width: 100%; min-width: 0; max-width: 100%;
+    border-left: none; border-top: 2px solid var(--border);
+    flex: none; overflow: visible;
+  }
+  #info-box {
+    flex-direction: row; flex-wrap: nowrap;
+    align-items: center; justify-content: space-between;
+    padding: 10px 14px; gap: 10px; flex: none;
+    min-height: 0; border-bottom: 2px solid var(--border);
+  }
+  #stats-block { flex: 1; gap: 0; }
+  .stat-label { font-size: 0.5rem; letter-spacing: 0.1em; margin-bottom: 2px; }
+  .stat-val { font-size: 1.4rem; }
+  #status-display { min-height: 0; width: auto; flex-shrink: 0; align-items: flex-end; gap: 2px; }
+  .result-card { padding: 32px 24px; width: 92vw; max-width: 92vw; }
+  .result-title { font-size: 2rem; }
+}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>🎨 Computational Thinking — Mastermind 🎨</h1>
+</div>
+
+<div id="main">
+<div id="centre">
+
+  <!-- LEFT: board -->
+  <div id="board">
+
+    <!-- Secret code shield -->
+    <div id="shield">
+      <span id="shield-label">?</span>
+      <div class="shield-pegs" id="shield-pegs">
+        <!-- rendered by JS -->
+      </div>
+      <div class="shield-spacer"></div>
+    </div>
+
+    <!-- Guess rows -->
+    <div id="rows-area">
+      <!-- rendered by JS -->
+    </div>
+
+    <!-- Colour palette -->
+    <div id="palette-bar">
+      <span id="palette-label">Colour</span>
+      <div id="palette-swatches">
+        <!-- rendered by JS -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: panel -->
+  <div id="right-panel">
+    <div id="info-box">
+
+      <div id="stats-block">
+        <div class="stat">
+          <div class="stat-label">Attempt</div>
+          <div class="stat-val" id="stat-attempt">1</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Of</div>
+          <div class="stat-val" style="color:var(--faint)" id="stat-max">10</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Correct</div>
+          <div class="stat-val good" id="stat-correct">—</div>
+        </div>
+      </div>
+
+      <div id="status-display">
+        <div class="status-label">Status</div>
+        <div id="status-msg">Pick a colour, then click pegs to fill your guess.</div>
+      </div>
+
+    </div>
+
+    <!-- Key / legend -->
+    <div id="key-box">
+      <div class="key-title">Feedback Key</div>
+      <div class="key-row">
+        <div class="key-peg exact"></div>
+        <div class="key-text"><strong>Green</strong> — right colour, right position</div>
+      </div>
+      <div class="key-row">
+        <div class="key-peg colour"></div>
+        <div class="key-text"><strong>Orange</strong> — right colour, wrong position</div>
+      </div>
+      <div class="key-row">
+        <div class="key-peg empty"></div>
+        <div class="key-text"><strong>Empty</strong> — colour not in the code</div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div id="btn-grid">
+      <button class="ctrl-btn primary" id="btn-submit" onclick="submitGuess()" disabled>✓ Submit</button>
+      <button class="ctrl-btn" onclick="clearCurrentRow()">✕ Clear</button>
+      <div class="dup-row">
+        <span class="dup-label">Allow duplicates</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="dup-toggle" onchange="newGame()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <button class="ctrl-btn danger" style="grid-column:span 2" onclick="confirmNewGame()">↺ New Game</button>
+    </div>
+  </div><!-- #centre -->
+</div><!-- #main -->
+
+<!-- RESULT BANNER -->
+<div id="result-overlay">
+  <div class="result-card">
+    <div class="result-main">
+      <div class="result-eyebrow" id="result-eyebrow">Game Over</div>
+      <div class="result-title" id="result-title"></div>
+      <div class="result-stats" id="result-stats"></div>
+    </div>
+    <div id="result-code" class="result-code"></div>
+    <div class="result-btns">
+      <button class="result-btn primary" onclick="newGame()">↺ New Game</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   CONFIG
+═══════════════════════════════════════════════════════ */
+const COLORS = ['#e03c3c','#3a8fd4','#3bba5a','#e8b830','#9b59b6','#e07a30'];
+const COLOR_NAMES = ['Red','Blue','Green','Yellow','Purple','Orange'];
+const MAX_ROWS = 10;
+const CODE_LEN = 4;
+
+/* ═══════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════ */
+const G = {
+  code: [],
+  guesses: [],       // array of {pegs: [...colorIdx], feedback: {black, white}}
+  currentPegs: [null, null, null, null],
+  selectedColor: null,
+  over: false,
+  won: false,
+  allowDups: true,
+};
+
+/* ═══════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════ */
+function newGame() {
+  document.getElementById('result-overlay').className = '';
+  G.allowDups = document.getElementById('dup-toggle').checked;
+  G.code = generateCode(G.allowDups);
+  G.guesses = [];
+  G.currentPegs = [null, null, null, null];
+  G.selectedColor = null;
+  G.over = false;
+  G.won = false;
+  renderAll();
+  updateStatus('Pick a colour, then click pegs to fill your guess.');
+}
+
+function confirmNewGame() {
+  if (!G.over && G.guesses.length > 0 && !confirm('Abandon this game?')) return;
+  newGame();
+}
+
+function generateCode(allowDups) {
+  const code = [];
+  const pool = [0,1,2,3,4,5];
+  if (allowDups) {
+    for (let i = 0; i < CODE_LEN; i++) code.push(Math.floor(Math.random() * COLORS.length));
+  } else {
+    const shuffled = pool.sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, CODE_LEN);
+  }
+  return code;
+}
+
+/* ═══════════════════════════════════════════════════════
+   GAME LOGIC
+═══════════════════════════════════════════════════════ */
+function score(code, guess) {
+  let black = 0, white = 0;
+  const codeCopy  = [...code];
+  const guessCopy = [...guess];
+
+  // Black pegs first
+  for (let i = 0; i < CODE_LEN; i++) {
+    if (guessCopy[i] === codeCopy[i]) {
+      black++;
+      codeCopy[i] = -1;
+      guessCopy[i] = -2;
+    }
+  }
+  // White pegs
+  for (let i = 0; i < CODE_LEN; i++) {
+    if (guessCopy[i] === -2) continue;
+    const idx = codeCopy.indexOf(guessCopy[i]);
+    if (idx !== -1) {
+      white++;
+      codeCopy[idx] = -1;
+    }
+  }
+  return { black, white };
+}
+
+function submitGuess() {
+  if (G.over) return;
+  if (G.currentPegs.some(p => p === null)) return;
+
+  const fb = score(G.code, G.currentPegs);
+  G.guesses.push({ pegs: [...G.currentPegs], feedback: fb });
+  G.currentPegs = [null, null, null, null];
+
+  if (fb.black === CODE_LEN) {
+    G.over = true; G.won = true;
+  } else if (G.guesses.length >= MAX_ROWS) {
+    G.over = true; G.won = false;
+  }
+
+  renderAll();
+
+  if (G.over) {
+    setTimeout(() => showResult(), 600);
+  } else {
+    updateStatus(`<strong>${fb.black}</strong> green, <strong>${fb.white}</strong> orange — keep going!`);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   INTERACTION
+═══════════════════════════════════════════════════════ */
+function selectColor(ci) {
+  if (G.over) return;
+  G.selectedColor = ci;
+  renderPalette();
+  // auto-fill next empty slot
+  const slot = G.currentPegs.indexOf(null);
+  if (slot !== -1) {
+    G.currentPegs[slot] = ci;
+    renderCurrentRow();
+    updateSubmitBtn();
+  }
+}
+
+function clickPeg(slot) {
+  if (G.over) return;
+  const row = G.guesses.length;
+  if (row >= MAX_ROWS) return;
+  if (G.selectedColor !== null) {
+    G.currentPegs[slot] = G.currentPegs[slot] === G.selectedColor ? null : G.selectedColor;
+  } else {
+    G.currentPegs[slot] = null;
+  }
+  renderCurrentRow();
+  updateSubmitBtn();
+}
+
+function clearCurrentRow() {
+  if (G.over) return;
+  G.currentPegs = [null, null, null, null];
+  renderCurrentRow();
+  updateSubmitBtn();
+}
+
+/* ═══════════════════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════════════════ */
+function renderAll() {
+  renderShield();
+  renderRows();
+  renderPalette();
+  updateStats();
+  updateSubmitBtn();
+}
+
+function renderShield() {
+  const container = document.getElementById('shield-pegs');
+  container.innerHTML = '';
+  for (let i = 0; i < CODE_LEN; i++) {
+    const el = document.createElement('div');
+    el.className = 'shield-peg';
+    if (G.over) {
+      el.classList.add('revealed');
+      el.style.background = COLORS[G.code[i]];
+      el.style.boxShadow = '0 3px 10px rgba(0,0,0,0.22), inset 0 1px 3px rgba(255,255,255,0.3)';
+    } else {
+      el.textContent = '?';
+    }
+    container.appendChild(el);
+  }
+}
+
+function renderRows() {
+  const area = document.getElementById('rows-area');
+  area.innerHTML = '';
+
+  const currentRow = G.guesses.length;
+
+  for (let r = 0; r < MAX_ROWS; r++) {
+    const row = document.createElement('div');
+    row.className = 'guess-row';
+
+    const num = document.createElement('div');
+    num.className = 'row-num';
+    num.textContent = r + 1;
+    row.appendChild(num);
+
+    const pegsDiv = document.createElement('div');
+    pegsDiv.className = 'guess-pegs';
+
+    if (r < currentRow) {
+      // Past row
+      row.classList.add('past');
+      G.guesses[r].pegs.forEach((ci, slot) => {
+        const peg = document.createElement('div');
+        peg.className = 'guess-peg filled';
+        peg.style.background = COLORS[ci];
+        pegsDiv.appendChild(peg);
+      });
+    } else if (r === currentRow && !G.over) {
+      // Active row
+      row.classList.add('active');
+      G.currentPegs.forEach((ci, slot) => {
+        const peg = document.createElement('div');
+        peg.className = 'guess-peg';
+        if (ci !== null) {
+          peg.classList.add('filled');
+          peg.style.background = COLORS[ci];
+        } else {
+          peg.classList.add('active-slot');
+        }
+        peg.onclick = () => clickPeg(slot);
+        pegsDiv.appendChild(peg);
+      });
+    } else {
+      // Empty future row
+      for (let s = 0; s < CODE_LEN; s++) {
+        const peg = document.createElement('div');
+        peg.className = 'guess-peg';
+        pegsDiv.appendChild(peg);
+      }
+    }
+
+    row.appendChild(pegsDiv);
+
+    // Feedback cluster
+    const cluster = document.createElement('div');
+    cluster.className = 'feedback-cluster';
+
+    if (r < currentRow) {
+      const fb = G.guesses[r].feedback;
+      const total = fb.black + fb.white;
+      for (let k = 0; k < 4; k++) {
+        const fp = document.createElement('div');
+        fp.className = 'fb-peg';
+        if (k < fb.black) fp.classList.add('exact');
+        else if (k < total) fp.classList.add('colour');
+        cluster.appendChild(fp);
+      }
+    } else {
+      for (let k = 0; k < 4; k++) {
+        const fp = document.createElement('div');
+        fp.className = 'fb-peg';
+        cluster.appendChild(fp);
+      }
+    }
+
+    row.appendChild(cluster);
+    area.appendChild(row);
+  }
+
+  // Scroll active row into view
+  if (!G.over && currentRow < MAX_ROWS) {
+    const rows = area.querySelectorAll('.guess-row');
+    if (rows[currentRow]) {
+      rows[currentRow].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }
+}
+
+function renderCurrentRow() {
+  const area = document.getElementById('rows-area');
+  const rows = area.querySelectorAll('.guess-row');
+  const r = G.guesses.length;
+  if (r >= MAX_ROWS || !rows[r]) return;
+
+  const pegsDiv = rows[r].querySelector('.guess-pegs');
+  pegsDiv.innerHTML = '';
+  G.currentPegs.forEach((ci, slot) => {
+    const peg = document.createElement('div');
+    peg.className = 'guess-peg';
+    if (ci !== null) {
+      peg.classList.add('filled');
+      peg.style.background = COLORS[ci];
+    } else {
+      peg.classList.add('active-slot');
+    }
+    peg.onclick = () => clickPeg(slot);
+    pegsDiv.appendChild(peg);
+  });
+}
+
+function renderPalette() {
+  const container = document.getElementById('palette-swatches');
+  container.innerHTML = '';
+  COLORS.forEach((c, ci) => {
+    const s = document.createElement('div');
+    s.className = 'swatch';
+    s.style.background = c;
+    s.title = COLOR_NAMES[ci];
+    s.textContent = ci + 1;
+    if (ci === G.selectedColor) s.classList.add('selected');
+    s.onclick = () => selectColor(ci);
+    container.appendChild(s);
+  });
+}
+
+function updateStats() {
+  const attempt = Math.min(G.guesses.length + 1, MAX_ROWS);
+  document.getElementById('stat-attempt').textContent = G.over ? G.guesses.length : attempt;
+  document.getElementById('stat-max').textContent = MAX_ROWS;
+
+  const lastFb = G.guesses.length > 0 ? G.guesses[G.guesses.length - 1].feedback : null;
+  const correctEl = document.getElementById('stat-correct');
+  if (lastFb) {
+    correctEl.textContent = lastFb.black;
+    correctEl.className = 'stat-val' + (lastFb.black === CODE_LEN ? ' good' : lastFb.black >= 2 ? '' : ' bad');
+  } else {
+    correctEl.textContent = '—';
+    correctEl.className = 'stat-val good';
+  }
+}
+
+function updateSubmitBtn() {
+  const full = G.currentPegs.every(p => p !== null);
+  document.getElementById('btn-submit').disabled = !full || G.over;
+}
+
+function updateStatus(html) {
+  document.getElementById('status-msg').innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESULT OVERLAY
+═══════════════════════════════════════════════════════ */
+function showResult() {
+  const overlay = document.getElementById('result-overlay');
+  document.getElementById('result-eyebrow').textContent = G.won ? 'Code Broken!' : 'Code Unbroken';
+  const titleEl = document.getElementById('result-title');
+  titleEl.textContent = G.won ? '🎉 Cracked it!' : '🔒 So close!';
+  titleEl.className = 'result-title ' + (G.won ? 'win' : 'lose');
+
+  const attempts = G.guesses.length;
+  document.getElementById('result-stats').innerHTML =
+    G.won
+      ? `Solved in <span class="good">${attempts}</span> of ${MAX_ROWS} attempts.`
+      : `${MAX_ROWS} attempts used — the code was:`;
+
+  const codeDiv = document.getElementById('result-code');
+  codeDiv.innerHTML = '';
+  if (!G.won) {
+    const lbl = document.createElement('span');
+    lbl.className = 'result-code-label';
+    lbl.textContent = 'Code';
+    codeDiv.appendChild(lbl);
+  }
+  G.code.forEach(ci => {
+    const p = document.createElement('div');
+    p.className = 'result-code-peg';
+    p.style.background = COLORS[ci];
+    p.textContent = ci + 1;
+    codeDiv.appendChild(p);
+  });
+
+  overlay.className = 'show';
+}
+
+/* ═══════════════════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', () => newGame());
+</script>
+</body>
+</html>
