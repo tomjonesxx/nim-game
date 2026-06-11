@@ -1,10 +1,11 @@
 /**
  * shared.js — mrjones.org.uk
  * Injects a consistent nav bar and base styles into every page.
- * Usage: <script src="/shared.js"></script>  (anywhere in <body>)
+ * Usage: <script src="/shared.js"></script>  (anywhere in <head> or <body>)
  */
 
 (function () {
+  function init() {
   const NAV_ITEMS = [
     { label: '🏠 Home',        href: '/'            },
     { label: '🎯 Nim',         href: '/nim/'         },
@@ -105,4 +106,13 @@
 
   /* ── Insert before the first element in <body> ──────────────────── */
   document.body.insertBefore(nav, document.body.firstChild);
+  }
+
+  /* ── Run once the DOM is ready ──────────────────────────────────── */
+  // If the tag is in <head>, document.body doesn't exist yet — wait for it.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();

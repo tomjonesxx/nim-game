@@ -1,0 +1,5 @@
+# Local Claude Code dev tooling (preview server config etc.) — not part of the site
+.claude/
+
+# macOS / Finder junk
+.DS_Store
