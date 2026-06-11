@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Computational Thinking — Nim</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:          #f7f7f3;
+  --white:       #ffffff;
+  --border:      #d8d8d0;
+  --border-dark: #b0b0a8;
+  --text:        #2a2a2a;
+  --muted:       #888880;
+  --faint:       #c0c0b8;
+
+  --green:       #3bba5a;
+  --green-light: #d4f5dc;
+  --green-glow:  rgba(59,186,90,0.35);
+
+  --blue:        #3a8fd4;
+  --blue-light:  rgba(58,143,212,0.1);
+  --orange:      #e07a30;
+  --orange-light:rgba(224,122,48,0.1);
+  --red:         #d94040;
+
+  --yellow-hdr:  #fdf8dc;
+  --yellow-bdr:  #e8d87a;
+
+  --counter-idle:    #e8e8e4;
+  --counter-border:  #c4c4bc;
+  --counter-shadow:  rgba(0,0,0,0.12);
+  --counter-sel:     #3bba5a;
+  --counter-sel-bdr: #2a9648;
+
+  --panel-w: 322px;
+  --header-h: 66px;
+  --font: Arial, Helvetica, sans-serif;
+  --mono: 'Courier New', Courier, monospace;
+}
+
+html, body { width:100%; height:100%; overflow:hidden; }
+
+body {
+  background: var(--bg);
+  font-family: var(--font);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ── HEADER ─────────────────────────────────────────── */
+#header {
+  background: var(--yellow-hdr);
+  border-bottom: 2.5px solid var(--yellow-bdr);
+  height: var(--header-h);
+  min-height: var(--header-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+#header h1 {
+  font-size: clamp(1.7rem, 3.8vw, 2.4rem);
+  font-weight: 900;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+/* ── MAIN LAYOUT ─────────────────────────────────────── */
+#main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── LEFT: game board ────────────────────────────────── */
+#board {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 20px 0 28px;
+  overflow: hidden;
+}
+
+/* Each pile row */
+#piles-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  padding: 12px 0 4px;
+  min-height: 0;
+}
+
+.pile-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-height: 0;
+}
+
+/* Take button — leftmost column, fixed width */
+.take-col {
+  width: 90px;
+  min-width: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-shrink: 0;
+}
+
+.take-btn {
+  font-family: var(--font);
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 10px 18px;
+  background: var(--white);
+  border: 2px solid var(--border-dark);
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s;
+  white-space: nowrap;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+}
+.take-btn:hover:not(:disabled) {
+  background: var(--green);
+  border-color: var(--counter-sel-bdr);
+  color: #fff;
+  box-shadow: 0 3px 10px var(--green-glow);
+}
+.take-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: var(--white);
+  color: var(--muted);
+  border-color: var(--border);
+}
+.take-btn.ready {
+  background: var(--green);
+  border-color: var(--counter-sel-bdr);
+  color: #fff;
+  box-shadow: 0 3px 12px var(--green-glow);
+  animation: takeReady 1.4s ease-in-out infinite;
+}
+@keyframes takeReady {
+  0%,100% { box-shadow: 0 3px 12px var(--green-glow); }
+  50%      { box-shadow: 0 3px 22px rgba(59,186,90,0.55); }
+}
+
+/* Counters area */
+.counters-col {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: clamp(5px, 1.2vw, 14px);
+  flex-wrap: nowrap;
+  overflow: hidden;
+  padding: 4px 0;
+}
+
+/* Individual counter */
+.counter {
+  width:  clamp(36px, 5.8vw, 72px);
+  height: clamp(36px, 5.8vw, 72px);
+  border-radius: 50%;
+  background: var(--counter-idle);
+  border: 2.5px solid var(--counter-border);
+  box-shadow: 0 3px 8px var(--counter-shadow), inset 0 1px 2px rgba(255,255,255,0.7);
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s, transform 0.12s, box-shadow 0.14s;
+  flex-shrink: 0;
+  position: relative;
+}
+.counter:hover:not(.dead) {
+  transform: scale(1.08);
+  border-color: var(--green);
+  box-shadow: 0 4px 12px var(--green-glow);
+}
+.counter.selected {
+  background: var(--counter-sel);
+  border-color: var(--counter-sel-bdr);
+  box-shadow: 0 4px 14px var(--green-glow), inset 0 1px 3px rgba(255,255,255,0.25);
+}
+.counter.selected:hover { transform: scale(1.06); }
+.counter.dead {
+  cursor: default;
+  opacity: 0.2;
+}
+
+/* Suggested counter — pulsing green ring */
+.counter.suggested-highlight {
+  border-color: var(--counter-sel-bdr);
+  box-shadow: 0 0 0 3px var(--green-glow), 0 4px 12px var(--green-glow);
+  animation: counterPulse 1.6s ease-in-out infinite;
+}
+@keyframes counterPulse {
+  0%,100% { box-shadow: 0 0 0 3px rgba(59,186,90,0.3), 0 4px 12px var(--green-glow); }
+  50%      { box-shadow: 0 0 0 6px rgba(59,186,90,0.5), 0 4px 18px rgba(59,186,90,0.5); }
+}
+
+/* Dim non-suggested piles */
+#piles-area.suggest-active .pile-row:not(.suggested-pile) {
+  opacity: 0.3;
+}
+
+/* Binary digits column — sized to content, never wraps */
+.binary-col {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  /* always occupies space; opacity toggled */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s;
+}
+.binary-col.show { opacity: 1; }
+
+.binary-digits {
+  font-family: var(--mono);
+  font-size: clamp(1rem, 2.2vw, 1.55rem);
+  color: var(--muted);
+  letter-spacing: 0.35em;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ── NIM SUM ROW ─────────────────────────────────────── */
+#nimsum-row {
+  height: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  border-top: 1.5px solid var(--border);
+  /* always occupies space; opacity toggled */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s;
+  padding: 0 20px 0 28px;  /* match #board padding */
+}
+#nimsum-row.show { opacity: 1; }
+
+.nimsum-label {
+  font-family: var(--font);
+  font-size: clamp(0.9rem, 1.8vw, 1.3rem);
+  font-weight: 700;
+  color: var(--muted);
+}
+.nimsum-digits {
+  font-family: var(--mono);
+  font-size: clamp(1.1rem, 2.4vw, 1.75rem);
+  font-weight: 700;
+  letter-spacing: 0.35em;
+  text-align: right;
+  padding-right: 8px;
+  white-space: nowrap;
+  transition: color 0.25s;
+}
+.nimsum-digits.zero    { color: var(--red); }
+.nimsum-digits.nonzero { color: var(--text); }
+
+/* ── RIGHT PANEL ─────────────────────────────────────── */
+#right-panel {
+  width: var(--panel-w);
+  min-width: var(--panel-w);
+  max-width: var(--panel-w);
+  flex-shrink: 0;
+  border-left: 2px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  background: var(--white);
+  overflow: hidden;
+}
+
+/* Info box: turn + scores */
+#info-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 20px;
+  border-bottom: 2px solid var(--border);
+  min-height: 0;
+}
+
+.turn-display {
+  text-align: center;
+}
+.turn-label-sm {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--muted);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.turn-name-lg {
+  font-size: clamp(2rem, 5vw, 3.8rem);
+  font-weight: 900;
+  color: var(--text);
+  transition: color 0.25s;
+  line-height: 1.1;
+}
+.turn-name-lg.p1 { color: var(--blue); }
+.turn-name-lg.p2 { color: var(--orange); }
+
+/* Nim-sum hint inside info box — always takes space, opacity toggled */
+#nimsum-hint {
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1.5px solid transparent;
+}
+#nimsum-hint.show { opacity: 1; }
+#nimsum-hint.zero    { background: rgba(217,64,64,0.06);  border-color: rgba(217,64,64,0.2); }
+#nimsum-hint.nonzero { background: rgba(59,186,90,0.06);  border-color: rgba(59,186,90,0.2); }
+
+.hint-val {
+  font-family: var(--mono);
+  font-size: clamp(0.9rem, 1.6vw, 1.1rem);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.hint-val.zero    { color: var(--red); }
+.hint-val.nonzero { color: var(--green); }
+.hint-text {
+  font-size: clamp(0.65rem, 1.1vw, 0.78rem);
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* Scores */
+.scores-block { width: 100%; }
+.scores-title {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--faint);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-align: center;
+  margin-bottom: 8px;
+}
+.score-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: clamp(0.75rem, 1.3vw, 0.9rem);
+}
+.score-row:last-child { border-bottom: none; }
+.score-player { font-weight: 700; }
+.score-player.p1 { color: var(--blue); }
+.score-player.p2 { color: var(--orange); }
+.score-wins {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* ── AUTOPLAY TOGGLES ────────────────────────────────── */
+.autoplay-block {
+  width: 100%;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.autoplay-title {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--faint);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-align: center;
+  margin-bottom: 2px;
+}
+.autoplay-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.autoplay-label {
+  font-size: clamp(0.75rem, 1.3vw, 0.9rem);
+  font-weight: 700;
+}
+.autoplay-label.p1 { color: var(--blue); }
+.autoplay-label.p2 { color: var(--orange); }
+
+/* Toggle switch */
+.toggle-switch {
+  position: relative;
+  width: 46px;
+  height: 26px;
+  flex-shrink: 0;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0; height: 0;
+  position: absolute;
+}
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 13px;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+.toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--white);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  transition: transform 0.2s;
+}
+.toggle-switch input:checked + .toggle-track { background: var(--green); }
+.toggle-switch input:checked + .toggle-track::after { transform: translateX(20px); }
+
+/* Autoplay rows inside btn-grid */
+.ctrl-autoplay {
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+}
+
+/* Thinking indicator shown during autoplay pause */
+.autoplay-thinking {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--muted);
+  text-align: center;
+  letter-spacing: 0.08em;
+  min-height: 1.2em;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.autoplay-thinking.show { opacity: 1; }
+
+/* Suggest explanation box inside right panel */
+#suggest-box {
+  border-top: 2px solid var(--border);
+  padding: 14px 16px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s;
+  flex-shrink: 0;
+}
+#suggest-box.show { opacity: 1; }
+
+.suggest-box-title {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--green);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.suggest-box-body {
+  font-size: clamp(0.62rem, 1vw, 0.75rem);
+  color: var(--muted);
+  line-height: 1.55;
+}
+.suggest-box-body strong { color: var(--green);  }
+.suggest-box-body .s-warn { color: var(--red); font-weight: 700; }
+.suggest-box-body .s-pile { color: var(--text); font-weight: 800; }
+.suggest-box-body .s-bin  { font-family: var(--mono); color: var(--text); letter-spacing: 0.12em; }
+
+/* ── BUTTONS (bottom of right panel) ─────────────────── */
+#btn-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 14px;
+  border-top: 2px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ctrl-btn {
+  font-family: var(--font);
+  font-size: clamp(0.72rem, 1.3vw, 0.88rem);
+  font-weight: 700;
+  padding: 11px 8px;
+  border: 2px solid var(--border-dark);
+  background: var(--white);
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.16s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+  text-align: center;
+  white-space: nowrap;
+}
+.ctrl-btn:hover { background: var(--bg); border-color: var(--text); }
+.ctrl-btn:active { transform: scale(0.97); }
+
+.ctrl-btn.on-binary  { background: var(--green-light); border-color: var(--green); color: var(--green); }
+.ctrl-btn.on-nimsum  { background: #fff8dc; border-color: #c8a800; color: #8a6d00; }
+.ctrl-btn.on-suggest { background: var(--green); border-color: var(--counter-sel-bdr); color: #fff; box-shadow: 0 3px 10px var(--green-glow); }
+.ctrl-btn.danger { color: var(--red); border-color: rgba(217,64,64,0.4); }
+.ctrl-btn.danger:hover { background: rgba(217,64,64,0.07); border-color: var(--red); }
+
+/* ── OVERLAYS ─────────────────────────────────────────── */
+.overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(40,40,36,0.55);
+  z-index: 500;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(3px);
+}
+.overlay.show { display: flex; }
+
+@keyframes popUp {
+  from { transform: scale(0.82); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+/* Winner */
+.winner-card {
+  background: var(--white);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 52px 70px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  animation: popUp 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+.winner-eyebrow {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.winner-name {
+  font-size: clamp(2.4rem, 6vw, 4.5rem);
+  font-weight: 900;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.winner-name.p1 { color: var(--blue); }
+.winner-name.p2 { color: var(--orange); }
+.winner-sub {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  margin-bottom: 36px;
+}
+.winner-btns { display: flex; gap: 12px; justify-content: center; }
+.winner-btn {
+  font-family: var(--font);
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 11px 26px;
+  border: 2px solid var(--border-dark);
+  background: var(--white);
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+.winner-btn.primary { background: var(--green); border-color: var(--counter-sel-bdr); color: #fff; }
+.winner-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+
+/* Setup */
+.setup-card {
+  background: var(--white);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 40px 48px;
+  min-width: 400px;
+  max-width: 520px;
+  width: 90vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+  animation: popUp 0.25s ease;
+}
+.setup-title {
+  font-size: 1.7rem;
+  font-weight: 900;
+  margin-bottom: 26px;
+}
+.setup-row { margin-bottom: 20px; }
+.setup-row label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--muted);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.name-inputs { display: flex; gap: 10px; }
+.name-inp {
+  flex: 1;
+  font-family: var(--font);
+  font-size: 0.95rem;
+  font-weight: 600;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  color: var(--text);
+  padding: 9px 13px;
+  outline: none;
+  border-radius: 6px;
+  transition: border-color 0.18s;
+}
+.name-inp:focus { border-color: var(--blue); }
+.name-inp.p2:focus { border-color: var(--orange); }
+
+.stepper { display: flex; align-items: center; gap: 14px; }
+.step-btn {
+  width: 36px; height: 36px;
+  border: 2px solid var(--border-dark);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.14s;
+}
+.step-btn:hover { border-color: var(--blue); color: var(--blue); }
+.step-val {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: var(--blue);
+  min-width: 2ch;
+  text-align: center;
+}
+.pile-size-inputs { display: flex; gap: 10px; flex-wrap: wrap; }
+.psw { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.psw span {
+  font-family: var(--mono);
+  font-size: 0.56rem;
+  color: var(--muted);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.psi {
+  font-family: var(--mono);
+  font-size: 1rem;
+  width: 54px;
+  text-align: center;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  color: var(--text);
+  padding: 7px 4px;
+  outline: none;
+  border-radius: 6px;
+  -moz-appearance: textfield;
+  transition: border-color 0.18s;
+}
+.psi:focus { border-color: var(--green); }
+.psi::-webkit-outer-spin-button, .psi::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.presets { display: flex; gap: 7px; flex-wrap: wrap; }
+.preset {
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  padding: 5px 12px;
+  border: 2px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 5px;
+  transition: all 0.14s;
+  letter-spacing: 0.06em;
+}
+.preset:hover { border-color: var(--text); color: var(--text); background: var(--white); }
+
+.setup-actions { display: flex; gap: 10px; margin-top: 24px; }
+.setup-btn {
+  font-family: var(--font);
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 11px 22px;
+  border: 2px solid var(--border-dark);
+  background: var(--white);
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.14s;
+}
+.setup-btn.primary { background: var(--green); border-color: var(--counter-sel-bdr); color: #fff; }
+.setup-btn:hover { opacity: 0.85; }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ──────────────────────────────────────────── -->
+<div id="header">
+  <h1>🧠 Computational Thinking — Nim 🧠</h1>
+</div>
+
+<!-- ── MAIN ────────────────────────────────────────────── -->
+<div id="main">
+
+  <!-- LEFT: board -->
+  <div id="board">
+    <div id="piles-area"></div>
+    <!-- Nim-sum row — mirrors pile-row columns so digits align with binary above -->
+    <div id="nimsum-row">
+      <div class="take-col"></div>
+      <div class="counters-col" style="justify-content:flex-end">
+        <span class="nimsum-label">Nim Sum:</span>
+      </div>
+      <div class="binary-col show" id="nimsum-binary-col">
+        <span class="nimsum-digits zero" id="nimsum-digits">0 0 0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: panel -->
+  <div id="right-panel">
+    <div id="info-box">
+      <!-- Turn -->
+      <div class="turn-display">
+        <div class="turn-label-sm">Current Turn</div>
+        <div class="turn-name-lg p1" id="turn-name">Player 1</div>
+      </div>
+
+      <!-- Nim-sum hint — always takes space -->
+      <div id="nimsum-hint">
+        <div class="hint-val nonzero" id="hint-val">XOR = —</div>
+        <div class="hint-text" id="hint-text"></div>
+      </div>
+
+      <!-- Scores -->
+      <div class="scores-block">
+        <div class="scores-title">Scoreboard</div>
+        <div class="score-row">
+          <span class="score-player p1" id="s-p1-name">Computer</span>
+          <span class="score-wins" id="s-p1-wins">0 wins</span>
+        </div>
+        <div class="score-row">
+          <span class="score-player p2" id="s-p2-name">Teacher</span>
+          <span class="score-wins" id="s-p2-wins">0 wins</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Suggest explanation — always takes space, opacity toggled -->
+    <div id="suggest-box">
+      <div class="suggest-box-title">★ Best Move</div>
+      <div class="suggest-box-body" id="suggest-box-body"></div>
+    </div>
+
+    <!-- Control buttons -->
+    <div id="btn-grid">
+      <button class="ctrl-btn" id="btn-binary"  onclick="toggleBinary()">Hint</button>
+      <button class="ctrl-btn" id="btn-nimsum"  onclick="toggleNimSum()">Show Nim‑Sum</button>
+      <button class="ctrl-btn" id="btn-suggest" onclick="toggleSuggest()">★ Suggest</button>
+      <button class="ctrl-btn danger" onclick="openSetup()">Setup</button>
+      <!-- Autoplay toggles -->
+      <div style="grid-column:span 2;font-family:var(--mono);font-size:0.58rem;color:var(--faint);letter-spacing:0.2em;text-transform:uppercase;text-align:center;padding-top:4px;">Autoplay</div>
+      <div class="autoplay-row ctrl-autoplay">
+        <span class="autoplay-label p1" id="auto-p1-label">Computer</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="auto-p1" onchange="onAutoplayChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="autoplay-row ctrl-autoplay">
+        <span class="autoplay-label p2" id="auto-p2-label">Teacher</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="auto-p2" onchange="onAutoplayChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="autoplay-thinking" id="autoplay-thinking" style="grid-column:span 2">Thinking…</div>
+      <button class="ctrl-btn danger" style="grid-column:span 2" onclick="confirmNewGame()">↺ New Game</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── WINNER OVERLAY ──────────────────────────────────── -->
+<div id="winner-overlay" class="overlay">
+  <div class="winner-card">
+    <div class="winner-eyebrow">Winner!</div>
+    <div class="winner-name p1" id="winner-name">Player 1</div>
+    <div class="winner-sub">took the last counter and wins!</div>
+    <div class="winner-btns">
+      <button class="winner-btn primary" onclick="startGame(true)">↺ Play Again</button>
+      <button class="winner-btn" onclick="closeWinner();openSetup()">⚙ Setup</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SETUP OVERLAY ───────────────────────────────────── -->
+<div id="setup-overlay" class="overlay">
+  <div class="setup-card">
+    <div class="setup-title">Game Setup</div>
+
+    <div class="setup-row">
+      <label>Player Names</label>
+      <div class="name-inputs">
+        <input class="name-inp p1" id="inp-p1" type="text" maxlength="20" value="Computer">
+        <input class="name-inp p2" id="inp-p2" type="text" maxlength="20" value="Teacher">
+      </div>
+    </div>
+
+    <div class="setup-row">
+      <label>Number of Piles</label>
+      <div class="stepper">
+        <button class="step-btn" onclick="changePiles(-1)">−</button>
+        <span class="step-val" id="step-val">4</span>
+        <button class="step-btn" onclick="changePiles(+1)">+</button>
+      </div>
+    </div>
+
+    <div class="setup-row">
+      <label>Counters per Pile</label>
+      <div class="pile-size-inputs" id="pile-size-inputs"></div>
+    </div>
+
+    <div class="setup-row">
+      <label>Quick Presets</label>
+      <div class="presets">
+        <button class="preset" onclick="applyPreset([1,3,5,7])">Classic 1,3,5,7</button>
+        <button class="preset" onclick="applyPreset([3,4,5])">Easy 3,4,5</button>
+        <button class="preset" onclick="applyPreset([2,5,8])">Medium 2,5,8</button>
+        <button class="preset" onclick="applyPreset([1,2,3,4,5])">5 piles</button>
+        <button class="preset" onclick="applyPreset([7,11,13])">Large</button>
+      </div>
+    </div>
+
+    <div class="setup-actions">
+      <button class="setup-btn primary" onclick="applySetup()">▶ Start Game</button>
+      <button class="setup-btn" onclick="closeSetup()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════════ */
+const G = {
+  piles:       [1, 3, 5, 7],
+  selected:    [],          // [pileIdx] of selected counters per pile → stored as Set per pile
+  names:       ['Computer', 'Teacher'],
+  scores:      [0, 0],
+  turn:        0,
+  over:        false,
+  showBinary:  false,
+  showNimSum:  false,
+  showSuggest: false,
+  autoplay:    [false, false],  // autoplay[0]=P1, autoplay[1]=P2
+};
+
+// selected[i] = number of counters selected in pile i (always a contiguous top-N)
+// We store it as a simple count.
+let sel = []; // sel[i] = count of selected counters in pile i
+let autoplayTimer = null;
+
+const S = { numPiles: 4, sizes: [1, 3, 5, 7] };
+
+/* ════════════════════════════════════════════════════
+   LOGIC
+════════════════════════════════════════════════════ */
+function nimSum(piles)  { return piles.reduce((a,p) => a ^ p, 0); }
+function maxBits(piles) { return Math.max(3, Math.floor(Math.log2(Math.max(...piles,1)))+1); }
+function toBin(n, b)    { return n.toString(2).padStart(b,'0'); }
+
+function bestMove(piles) {
+  const ns = nimSum(piles);
+  if (ns === 0) return null;
+  for (let i = 0; i < piles.length; i++) {
+    const target = piles[i] ^ ns;
+    if (target < piles[i]) return { pileIdx: i, removeCount: piles[i] - target, targetSize: target };
+  }
+  return null;
+}
+
+/* When in a losing position (nim-sum=0), pick a random non-empty pile
+   and take a random number of counters from it. */
+function anyMove(piles) {
+  const m = bestMove(piles);
+  if (m) return m;
+  // losing position: random pile, random count
+  const nonEmpty = piles.map((p,i) => i).filter(i => piles[i] > 0);
+  const pileIdx  = nonEmpty[Math.floor(Math.random() * nonEmpty.length)];
+  const removeCount = Math.floor(Math.random() * piles[pileIdx]) + 1;
+  return { pileIdx, removeCount, targetSize: piles[pileIdx] - removeCount };
+}
+
+/* Called after each move (or when an autoplay toggle changes) to
+   schedule the computer's turn if appropriate. */
+function maybeScheduleAutoplay() {
+  if (G.over) return;
+  if (!G.autoplay[G.turn]) return;
+  if (autoplayTimer !== null) return; // already scheduled
+
+  const thinking = document.getElementById('autoplay-thinking');
+  thinking.classList.add('show');
+
+  // Phase 1 (700ms): show counters highlighted (selected state) so class can see the move
+  autoplayTimer = setTimeout(() => {
+    const move = anyMove(G.piles);
+    if (!move || G.over) { thinking.classList.remove('show'); autoplayTimer = null; return; }
+
+    // Select the counters visually
+    sel[move.pileIdx] = move.removeCount;
+    renderPiles();
+
+    // Phase 2 (900ms): hold selection visible, then execute
+    autoplayTimer = setTimeout(() => {
+      autoplayTimer = null;
+      thinking.classList.remove('show');
+      takeMove(move.pileIdx);
+    }, 900);
+  }, 700);
+}
+
+function onAutoplayChange() {
+  G.autoplay[0] = document.getElementById('auto-p1').checked;
+  G.autoplay[1] = document.getElementById('auto-p2').checked;
+  // If current player just got autoplay enabled, kick it off
+  maybeScheduleAutoplay();
+}
+
+function cancelAutoplay() {
+  if (autoplayTimer !== null) { clearTimeout(autoplayTimer); autoplayTimer = null; }
+  document.getElementById('autoplay-thinking').classList.remove('show');
+}
+
+/* ════════════════════════════════════════════════════
+   SELECTION — tap a counter to select/deselect.
+   Rule: you can only select a contiguous run from the
+   top (rightmost). Clicking counter k selects all
+   counters from k to end. Clicking a selected counter
+   deselects from that point onwards.
+════════════════════════════════════════════════════ */
+function tapCounter(pileIdx, counterIdx) {
+  if (G.over) return;
+  if (G.autoplay[G.turn]) return; // block manual input on autoplay turns
+  const count = G.piles[pileIdx];
+  if (count === 0) return;
+
+  const curSel = sel[pileIdx] || 0;
+  const newSelStart = count - curSel; // index where selection starts currently
+
+  if (counterIdx >= newSelStart && curSel > 0) {
+    if (counterIdx === newSelStart) {
+      sel[pileIdx] = 0;
+    } else {
+      sel[pileIdx] = count - counterIdx;
+    }
+  } else {
+    sel[pileIdx] = count - counterIdx;
+  }
+
+  renderPiles();
+}
+
+function updateTakeBtn(pileIdx) {
+  // handled in renderPiles
+}
+
+function takeMove(pileIdx) {
+  const amount = sel[pileIdx] || 0;
+  if (amount <= 0 || G.over) return;
+
+  G.piles[pileIdx] -= amount;
+  sel[pileIdx] = 0;
+
+  if (G.piles.every(p => p === 0)) {
+    G.over = true;
+    G.scores[G.turn]++;
+    renderPiles();
+    updateBinaryPanel();
+    updateStatus();
+    showWinner(G.turn);
+    return;
+  }
+
+  G.turn = 1 - G.turn;
+  renderPiles();
+  updateBinaryPanel();
+  updateStatus();
+  maybeScheduleAutoplay();
+}
+
+/* ════════════════════════════════════════════════════
+   RENDER
+════════════════════════════════════════════════════ */
+function renderAll() {
+  renderPiles();
+  updateBinaryPanel();
+  updateStatus();
+  updateScores();
+}
+
+function renderPiles() {
+  const area = document.getElementById('piles-area');
+  area.innerHTML = '';
+
+  const move = (!G.over && G.showSuggest) ? bestMove(G.piles) : null;
+  if (move) area.classList.add('suggest-active');
+  else area.classList.remove('suggest-active');
+
+  const bits = maxBits(G.piles);
+
+  G.piles.forEach((count, pi) => {
+    const selCount = sel[pi] || 0;
+    const selStart = count - selCount; // first selected index
+
+    const row = document.createElement('div');
+    row.className = 'pile-row';
+    if (move && move.pileIdx === pi) row.classList.add('suggested-pile');
+
+    /* Take button */
+    const takeCol = document.createElement('div');
+    takeCol.className = 'take-col';
+    const takeBtn = document.createElement('button');
+    takeBtn.className = 'take-btn' + (selCount > 0 ? ' ready' : '');
+    takeBtn.textContent = 'Take';
+    takeBtn.disabled = selCount === 0 || G.over || G.autoplay[G.turn];
+    takeBtn.onclick = () => takeMove(pi);
+    takeCol.appendChild(takeBtn);
+    row.appendChild(takeCol);
+
+    /* Counters */
+    const countersCol = document.createElement('div');
+    countersCol.className = 'counters-col';
+
+    for (let ci = 0; ci < count; ci++) {
+      const isSelected = ci >= selStart;
+      const isSuggestHighlight = move && move.pileIdx === pi && ci >= (count - move.removeCount);
+
+      const c = document.createElement('div');
+      c.className = 'counter';
+      if (isSelected) c.classList.add('selected');
+      else if (isSuggestHighlight) c.classList.add('suggested-highlight');
+      if (G.over) c.classList.add('dead');
+
+      c.onclick = () => tapCounter(pi, ci);
+      countersCol.appendChild(c);
+    }
+
+    // If pile is empty show a placeholder
+    if (count === 0) {
+      const empty = document.createElement('span');
+      empty.style.cssText = 'font-family:var(--mono);font-size:0.7rem;color:var(--faint);letter-spacing:0.15em;text-transform:uppercase';
+      empty.textContent = 'empty';
+      countersCol.appendChild(empty);
+    }
+
+    row.appendChild(countersCol);
+
+    /* Binary digits column — always present, opacity via CSS */
+    const binCol = document.createElement('div');
+    binCol.className = 'binary-col' + (G.showBinary ? ' show' : '');
+    const binStr = toBin(count, bits).split('').join(' ');
+    binCol.innerHTML = `<span class="binary-digits">${binStr}</span>`;
+    row.appendChild(binCol);
+
+    area.appendChild(row);
+  });
+}
+
+/* ── Binary panel + suggestion explanation ─────────── */
+function updateBinaryPanel() {
+  const move  = (!G.over && G.showSuggest) ? bestMove(G.piles) : null;
+  const bits  = maxBits(G.piles);
+  const ns    = nimSum(G.piles);
+  const nsBin = toBin(ns, bits).split('').join(' ');
+
+  // Nim-sum row — show only when BOTH hint (binary) AND nim-sum toggles are on
+  const nsRow    = document.getElementById('nimsum-row');
+  const nsDigits = document.getElementById('nimsum-digits');
+  nsRow.classList.toggle('show', G.showBinary && G.showNimSum);
+  nsDigits.textContent = nsBin;
+  nsDigits.className = 'nimsum-digits ' + (ns === 0 ? 'zero' : 'nonzero');
+
+  // Suggest explanation box
+  const box  = document.getElementById('suggest-box');
+  const body = document.getElementById('suggest-box-body');
+  const showExp = G.showSuggest && G.showBinary && !G.over;
+  box.classList.toggle('show', showExp);
+
+  if (showExp) {
+    if (!move) {
+      body.innerHTML = `<span class="s-warn">Nim‑sum = 0.</span> This is a losing position — every move hands the opponent a winning response. No winning move exists.`;
+    } else {
+      const pn   = move.pileIdx + 1;
+      const from = G.piles[move.pileIdx];
+      const to   = move.targetSize;
+      const rm   = move.removeCount;
+      const ns2  = nimSum(G.piles);
+      body.innerHTML = `
+        Nim‑sum = <span class="s-bin">${toBin(ns2,bits).split('').join(' ')}</span> ≠ 0.<br><br>
+        <span class="s-pile">Pile ${pn}</span>: <span class="s-bin">${toBin(from,bits).split('').join(' ')}</span><br>
+        XOR nim‑sum: <span class="s-bin">${toBin(to,bits).split('').join(' ')}</span> = ${to}<br><br>
+        Remove <strong>${rm}</strong> counter${rm!==1?'s':''} from <span class="s-pile">Pile ${pn}</span> (${from}→${to}) to leave nim‑sum = <strong>0</strong>.`;
+    }
+  }
+}
+
+/* ── Status bar ─────────────────────────────────────── */
+function updateStatus() {
+  const nameEl = document.getElementById('turn-name');
+  nameEl.textContent = G.over ? 'Game Over' : G.names[G.turn];
+  nameEl.className   = 'turn-name-lg ' + (G.turn === 0 ? 'p1' : 'p2');
+
+  // Nim-sum hint
+  const ns      = nimSum(G.piles);
+  const hint    = document.getElementById('nimsum-hint');
+  const hintVal = document.getElementById('hint-val');
+  const hintTxt = document.getElementById('hint-text');
+
+  hint.classList.toggle('show', G.showNimSum && !G.over);
+
+  if (ns === 0) {
+    hint.className = 'show zero';
+    hintVal.className = 'hint-val zero';
+    hintVal.textContent = 'Nim‑Sum = 0';
+    hintTxt.textContent = `Losing position: any move gives the opponent control.`;
+  } else {
+    hint.className = 'show nonzero';
+    hintVal.className = 'hint-val nonzero';
+    hintVal.textContent = `Nim‑Sum = ${ns}`;
+    hintTxt.textContent = `Winning position: a move exists that leaves nim‑sum = 0.`;
+  }
+  if (!G.showNimSum || G.over) hint.className = hint.className.replace('show','').trim() || 'hidden';
+}
+
+function updateScores() {
+  document.getElementById('s-p1-name').textContent = G.names[0];
+  document.getElementById('s-p2-name').textContent = G.names[1];
+  document.getElementById('s-p1-wins').textContent = `${G.scores[0]} win${G.scores[0]!==1?'s':''}`;
+  document.getElementById('s-p2-wins').textContent = `${G.scores[1]} win${G.scores[1]!==1?'s':''}`;
+  document.getElementById('auto-p1-label').textContent = G.names[0];
+  document.getElementById('auto-p2-label').textContent = G.names[1];
+}
+
+/* ════════════════════════════════════════════════════
+   WINNER
+════════════════════════════════════════════════════ */
+function showWinner(idx) {
+  const el = document.getElementById('winner-name');
+  el.textContent = G.names[idx];
+  el.className   = 'winner-name ' + (idx===0?'p1':'p2');
+  updateScores();
+  document.getElementById('winner-overlay').className = 'overlay show';
+}
+function closeWinner() {
+  document.getElementById('winner-overlay').className = 'overlay';
+}
+
+/* ════════════════════════════════════════════════════
+   NEW GAME
+════════════════════════════════════════════════════ */
+function startGame(keepScores) {
+  cancelAutoplay();
+  closeWinner();
+  if (!keepScores) G.scores = [0,0];
+  G.piles = [...S.sizes];
+  sel     = G.piles.map(() => 0);
+  G.turn  = 0;
+  G.over  = false;
+  renderAll();
+  maybeScheduleAutoplay();
+}
+
+function confirmNewGame() {
+  if (!G.over && G.piles.some((p,i) => p < S.sizes[i]) && !confirm('Start a new game?')) return;
+  startGame(true);
+}
+
+/* ════════════════════════════════════════════════════
+   TOGGLES
+════════════════════════════════════════════════════ */
+function toggleBinary() {
+  G.showBinary = !G.showBinary;
+  const btn = document.getElementById('btn-binary');
+  btn.classList.toggle('on-binary', G.showBinary);
+  btn.textContent = G.showBinary ? 'Hide Hint' : 'Hint';
+  renderPiles();
+  updateBinaryPanel();
+}
+
+function toggleNimSum() {
+  G.showNimSum = !G.showNimSum;
+  const btn = document.getElementById('btn-nimsum');
+  btn.classList.toggle('on-nimsum', G.showNimSum);
+  btn.textContent = G.showNimSum ? 'Hide Nim‑Sum' : 'Show Nim‑Sum';
+  updateStatus();
+  updateBinaryPanel();
+}
+
+function toggleSuggest() {
+  G.showSuggest = !G.showSuggest;
+  const btn = document.getElementById('btn-suggest');
+  btn.classList.toggle('on-suggest', G.showSuggest);
+  btn.textContent = G.showSuggest ? '★ Hide Suggest' : '★ Suggest';
+  renderPiles();
+  updateBinaryPanel();
+}
+
+/* ════════════════════════════════════════════════════
+   SETUP
+════════════════════════════════════════════════════ */
+function openSetup() {
+  closeWinner();
+  S.numPiles = G.piles.length;
+  S.sizes    = [...G.piles];
+  document.getElementById('inp-p1').value = G.names[0];
+  document.getElementById('inp-p2').value = G.names[1];
+  renderSetupInputs();
+  document.getElementById('setup-overlay').className = 'overlay show';
+}
+function closeSetup() {
+  document.getElementById('setup-overlay').className = 'overlay';
+}
+
+function changePiles(d) {
+  S.numPiles = Math.max(1, Math.min(8, S.numPiles+d));
+  while (S.sizes.length < S.numPiles) S.sizes.push(S.sizes[S.sizes.length-1]??5);
+  renderSetupInputs();
+}
+
+function renderSetupInputs() {
+  document.getElementById('step-val').textContent = S.numPiles;
+  const c = document.getElementById('pile-size-inputs');
+  c.innerHTML = '';
+  for (let i = 0; i < S.numPiles; i++) {
+    const w = document.createElement('div'); w.className='psw';
+    const l = document.createElement('span'); l.textContent=`Pile ${i+1}`;
+    const inp = document.createElement('input');
+    inp.type='number'; inp.min=1; inp.max=20;
+    inp.className='psi'; inp.value=S.sizes[i]??5;
+    inp.addEventListener('input', ()=>{
+      const v=parseInt(inp.value);
+      S.sizes[i]=isNaN(v)?1:Math.max(1,Math.min(20,v));
+    });
+    w.appendChild(l); w.appendChild(inp);
+    c.appendChild(w);
+  }
+}
+
+function applyPreset(sizes) {
+  S.numPiles=sizes.length; S.sizes=[...sizes];
+  renderSetupInputs();
+}
+
+function applySetup() {
+  const inputs=[...document.querySelectorAll('.psi')];
+  const sizes=[]; let ok=true;
+  inputs.forEach(inp=>{
+    const v=parseInt(inp.value);
+    if(isNaN(v)||v<1){inp.style.borderColor='var(--red)';ok=false;}
+    else{inp.style.borderColor='';sizes.push(Math.min(20,v));}
+  });
+  if(!ok) return;
+  G.names=[
+    document.getElementById('inp-p1').value.trim()||'Player 1',
+    document.getElementById('inp-p2').value.trim()||'Player 2',
+  ];
+  S.sizes=sizes; S.numPiles=sizes.length;
+  closeSetup();
+  startGame(false);
+}
+
+/* ════════════════════════════════════════════════════
+   BOOT
+════════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', ()=>{
+  S.numPiles=G.piles.length; S.sizes=[...G.piles];
+  sel=G.piles.map(()=>0);
+  renderAll();
+});
+</script>
+</body>
+</html>
