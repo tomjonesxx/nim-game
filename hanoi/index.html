@@ -408,6 +408,34 @@ body {
 }
 .autoplay-thinking.show { opacity: 1; }
 
+/* Autoplay speed row */
+.autoplay-speed-row {
+  grid-column: span 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+}
+.autoplay-speed-row input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--green);
+  cursor: pointer;
+}
+.autoplay-speed-val {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--green);
+  letter-spacing: 0.06em;
+  min-width: 4.5ch;
+  text-align: right;
+}
+
 /* Toggle switch — same as Nim */
 .toggle-switch {
   position: relative;
@@ -817,6 +845,13 @@ body {
           <span class="toggle-track"></span>
         </label>
       </div>
+      <!-- Autoplay speed -->
+      <div class="autoplay-speed-row">
+        <span class="autoplay-label">Speed</span>
+        <input type="range" id="autoplay-speed" min="0" max="3" step="1" value="1"
+               oninput="onSpeedChange()">
+        <span class="autoplay-speed-val" id="autoplay-speed-val">Normal</span>
+      </div>
       <div class="autoplay-thinking" id="autoplay-thinking">Thinking…</div>
       <button class="ctrl-btn danger" style="grid-column:span 2" onclick="confirmReset()">↺ Reset Puzzle</button>
     </div>
@@ -899,6 +934,15 @@ let setupDisks  = 5;
 let setupTowers = 3;
 let autoplayTimer = null;
 
+/* Autoplay speed — slider index → { delay in ms, label } */
+const SPEEDS = [
+  { ms: 1600, label: 'Slow'   },
+  { ms: 900,  label: 'Normal' },
+  { ms: 400,  label: 'Fast'   },
+  { ms: 150,  label: 'Turbo'  },
+];
+let autoplayDelay = SPEEDS[1].ms;
+
 /* ════════════════════════════════════════════════════
    TOWER NAMES — A B C D E …
 ════════════════════════════════════════════════════ */
@@ -934,45 +978,43 @@ function optimalMoves(n, p) {
 
 /* ════════════════════════════════════════════════════
    NEXT OPTIMAL MOVE
-   Generates the full optimal move sequence from the
-   INITIAL state (all disks on peg 0), then finds where
-   we are in that sequence and returns the next move.
+   Works out the next move from the ACTUAL current state
+   (not a fixed sequence from the start), so it still
+   gives the right answer after off-optimal manual moves.
+
+   Classic recursive rule: to land disk `d` on `target`,
+   first clear every smaller disk onto the third peg, then
+   move `d` across. Returns the single next move to make.
 ════════════════════════════════════════════════════ */
 function nextOptimalMove(towers) {
   const n    = towers.reduce((s, t) => s + t.length, 0);
+  if (n === 0) return null;
   const dest = towers.length - 1;
 
-  // Generate the complete optimal move list from the solved start state
-  const moves = [];
-  function generate(disk, from, to, via) {
-    if (disk === 0) return;
-    generate(disk - 1, from, via, to);
-    moves.push([from, to]);
-    generate(disk - 1, via, to, from);
-  }
-  generate(n, 0, dest, dest === 2 ? 1 : 1); // aux peg = 1 for standard 3-peg
+  // Where each disk size currently sits
+  const pos = {};
+  for (let t = 0; t < towers.length; t++)
+    for (const size of towers[t]) pos[size] = t;
 
-  // Simulate from the start to find current position in sequence
-  const sim = Array.from({ length: towers.length }, () => []);
-  for (let d = n; d >= 1; d--) sim[0].push(d);
-
-  for (const [from, to] of moves) {
-    // Check if current sim state matches actual state
-    if (statesMatch(sim, towers)) return { from, to };
-    sim[to].push(sim[from].pop());
+  // Pick a spare peg that is neither src nor target
+  function auxPeg(src, target) {
+    for (let p = 0; p < towers.length; p++)
+      if (p !== src && p !== target) return p;
+    return -1;
   }
-  return null; // already solved
-}
 
-function statesMatch(a, b) {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    if (a[i].length !== b[i].length) return false;
-    for (let j = 0; j < a[i].length; j++) {
-      if (a[i][j] !== b[i][j]) return false;
-    }
+  // Next move that progresses disk `disk` (and all below it) onto `target`
+  function next(disk, target) {
+    if (disk === 0) return null;          // nothing left to place
+    const src = pos[disk];
+    if (src === target) return next(disk - 1, target); // already placed
+    const aux = auxPeg(src, target);
+    const sub = next(disk - 1, aux);      // first clear the smaller disks
+    if (sub) return sub;
+    return { from: src, to: target };     // path is clear — move this disk
   }
-  return true;
+
+  return next(n, dest);
 }
 
 function canPlaceSize(diskSize, tIdx, towers) {
@@ -1027,6 +1069,7 @@ function checkWin() {
   const dest = G.numTowers - 1;
   if (G.towers[dest].length === G.numDisks) {
     G.over = true;
+    cancelAutoplay();
     const opt = optimalMoves(G.numDisks, G.numTowers);
     const isPerfect = G.moves === opt;
     const key = `${G.numDisks}-${G.numTowers}`;
@@ -1237,10 +1280,20 @@ function onAutoplayChange() {
 }
 
 function scheduleAutoplay() {
-  cancelAutoplay();
+  cancelAutoplay({ keepToggle: true });
   if (G.over) return;
   document.getElementById('autoplay-thinking').classList.add('show');
-  autoplayTimer = setTimeout(doAutoplayStep, 900);
+  autoplayTimer = setTimeout(doAutoplayStep, autoplayDelay);
+}
+
+function onSpeedChange() {
+  const idx = +document.getElementById('autoplay-speed').value;
+  autoplayDelay = SPEEDS[idx].ms;
+  document.getElementById('autoplay-speed-val').textContent = SPEEDS[idx].label;
+  // If a step is already pending, restart its timer so the change feels instant
+  if (autoplayTimer && document.getElementById('autoplay-toggle').checked) {
+    scheduleAutoplay();
+  }
 }
 
 function doAutoplayStep() {
@@ -1262,12 +1315,15 @@ function doAutoplayStep() {
   }
 }
 
-function cancelAutoplay() {
+function cancelAutoplay(opts = {}) {
   if (autoplayTimer) { clearTimeout(autoplayTimer); autoplayTimer = null; }
   document.getElementById('autoplay-thinking').classList.remove('show');
-  // uncheck the toggle without firing the change event
-  const tog = document.getElementById('autoplay-toggle');
-  if (tog) tog.checked = false;
+  // Force the toggle off only on a real stop (reset/undo/win) — not when
+  // scheduleAutoplay is just clearing a pending timer between steps.
+  if (!opts.keepToggle) {
+    const tog = document.getElementById('autoplay-toggle');
+    if (tog) tog.checked = false;
+  }
 }
 
 /* ════════════════════════════════════════════════════
